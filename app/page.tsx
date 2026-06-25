@@ -9,11 +9,11 @@ const tools = [
     status: 'live',
   },
   {
-    href: '#',
+    href: '/secondary-pricing',
     title: 'Secondary Transaction Pricing',
     description: 'Calculate NAV discounts in secondary transactions given rate environment, sector, leverage, and hold period.',
     tag: 'Tool 2',
-    status: 'coming',
+    status: 'live',
   },
   {
     href: '#',
