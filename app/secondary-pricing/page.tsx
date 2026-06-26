@@ -6,7 +6,7 @@ import {
   Tooltip, ReferenceLine, ResponsiveContainer, Cell, Legend,
 } from 'recharts';
 import {
-  calculateSeller, calculateBuyer,
+  calculateSeller, calculateBuyer, discountAtCustomReturn,
   SOFR_ROWS, LIFE_COLS, BID_PCT_ROWS,
   type SecondaryInputs, type Sector,
 } from '@/lib/calculators/secondaryPricing';
@@ -204,6 +204,7 @@ function SellerTool({
 }) {
   const th = T(isDark);
   const [inp, setInp] = useState<SecondaryInputs>(DEFAULT);
+  const [minBuyerReturn, setMinBuyerReturn] = useState<number | null>(null);
 
   function set<K extends keyof SecondaryInputs>(k: K, v: SecondaryInputs[K]) {
     setInp(prev => ({ ...prev, [k]: v }));
@@ -216,6 +217,12 @@ function SellerTool({
   const tvpi = inp.dpi + inp.rvpi;
   const discountVariant = result.impliedDiscount >= 0.30 ? 'danger'
     : result.impliedDiscount >= 0.20 ? 'warning' : 'positive';
+
+  // Optional: implied price if seller accepts a buyer requiring minBuyerReturn
+  const worstCaseResult = useMemo(() => {
+    if (minBuyerReturn === null) return null;
+    return discountAtCustomReturn(inp, minBuyerReturn / 100);
+  }, [inp, minBuyerReturn]);
 
   return (
     <div className={`min-h-screen ${th.page}`}>
@@ -309,6 +316,43 @@ function SellerTool({
               <InputRow label="Portfolio Leverage" value={inp.leverageRatio} onChange={v => set('leverageRatio', v)} unit="x" min={0} max={2} step={0.05} th={th} />
             </div>
           </div>
+
+          <div className={`border-t ${th.divider}`} />
+
+          {/* Optional: worst-case buyer return */}
+          <div>
+            <p className={`text-xs font-semibold uppercase tracking-widest mb-1 ${th.dimmed}`}>Seller's Floor <span className={`normal-case font-normal ${th.dimmed}`}>(optional)</span></p>
+            <p className={`text-xs leading-relaxed mb-3 ${th.dimmed}`}>
+              "The worst buyer I'd accept requires this return." Leave blank to use market rate only.
+            </p>
+            <div className="flex flex-col gap-1">
+              <label className={`text-xs font-medium uppercase tracking-wide ${th.label}`}>
+                Min. Buyer's Required Return
+              </label>
+              <div className="flex items-center gap-2">
+                <input
+                  type="number"
+                  placeholder="e.g. 13.8"
+                  value={minBuyerReturn ?? ''}
+                  min={1} max={40} step={0.1}
+                  onChange={e => {
+                    const v = parseFloat(e.target.value);
+                    setMinBuyerReturn(isNaN(v) ? null : v);
+                  }}
+                  className={`w-full border rounded px-3 py-2 text-sm font-mono focus:outline-none ${th.input} placeholder:text-slate-600`}
+                />
+                <span className={`text-sm font-mono w-8 shrink-0 ${th.dimmed}`}>%</span>
+              </div>
+            </div>
+            {minBuyerReturn !== null && (
+              <button
+                onClick={() => setMinBuyerReturn(null)}
+                className={`mt-2 text-xs ${th.dimmed} hover:text-red-400 transition-colors`}
+              >
+                ✕ Clear
+              </button>
+            )}
+          </div>
         </div>
 
         {/* ── Right: Results ── */}
@@ -341,6 +385,38 @@ function SellerTool({
               variant="neutral"
             />
           </div>
+
+          {/* Optional: worst-case floor card */}
+          {worstCaseResult && minBuyerReturn !== null && (
+            <div className={`rounded-xl p-4 border-2 border-blue-500/40 ${isDark ? 'bg-blue-950/30' : 'bg-blue-50'}`}>
+              <p className="text-xs font-semibold uppercase tracking-widest text-blue-500 mb-3">
+                If your worst buyer requires {minBuyerReturn}% return
+              </p>
+              <div className="grid grid-cols-3 gap-3">
+                <div className={`rounded-lg px-3 py-3 ${th.section}`}>
+                  <p className={`text-xs ${th.dimmed} mb-1`}>Discount You'd Face</p>
+                  <p className={`text-lg font-mono font-bold ${worstCaseResult.discount >= 0.25 ? 'text-red-400' : worstCaseResult.discount >= 0.15 ? 'text-yellow-400' : 'text-emerald-400'}`}>
+                    {fmtPct(worstCaseResult.discount)}
+                  </p>
+                </div>
+                <div className={`rounded-lg px-3 py-3 ${th.section}`}>
+                  <p className={`text-xs ${th.dimmed} mb-1`}>Price You'd Receive</p>
+                  <p className={`text-lg font-mono font-bold ${th.text}`}>{fmtM(worstCaseResult.price)}</p>
+                </div>
+                <div className={`rounded-lg px-3 py-3 ${th.section}`}>
+                  <p className={`text-xs ${th.dimmed} mb-1`}>vs. Market Price</p>
+                  <p className={`text-lg font-mono font-bold ${worstCaseResult.price >= result.impliedPrice ? 'text-emerald-400' : 'text-red-400'}`}>
+                    {worstCaseResult.price >= result.impliedPrice ? '+' : ''}{fmtM(worstCaseResult.price - result.impliedPrice)}
+                  </p>
+                </div>
+              </div>
+              <p className={`text-xs mt-3 ${th.dimmed}`}>
+                {worstCaseResult.price >= result.impliedPrice
+                  ? `A buyer requiring ${minBuyerReturn}% is less demanding than the market — you'd receive more than the market price.`
+                  : `A buyer requiring ${minBuyerReturn}% is more demanding than the market — you'd receive less than the market price.`}
+              </p>
+            </div>
+          )}
 
           {/* Discount driver breakdown */}
           <div className={`rounded-xl p-5 ${th.card}`}>

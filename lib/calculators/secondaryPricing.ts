@@ -114,6 +114,16 @@ function annualIRR(quarterlyRate: number): number {
 
 // ── Main exports ───────────────────────────────────────────────────────────
 
+export function discountAtCustomReturn(inputs: SecondaryInputs, annualReturn: number): { discount: number; price: number } {
+  const remainingYears = inputs.fundEndYear - inputs.currentYear;
+  const flows  = buildCashflows(inputs.nav, inputs.rvpi, remainingYears);
+  const qRate  = (1 + annualReturn) ** (1 / 4) - 1;
+  let pv = 0;
+  for (let t = 1; t < flows.length; t++) pv += flows[t] / (1 + qRate) ** t;
+  const discount = Math.max(0.01, Math.min(0.65, 1 - pv / inputs.nav));
+  return { discount, price: inputs.nav * (1 - discount) };
+}
+
 export const SOFR_ROWS  = [3, 4, 5, 5.3, 6, 7, 8, 9];
 export const LIFE_COLS  = [1, 2, 3, 4, 5, 6];
 export const BID_PCT_ROWS = [0.70, 0.75, 0.80, 0.85, 0.90, 0.95, 1.00];
