@@ -61,10 +61,13 @@ const DEFAULT: SecondaryInputs = {
   currentYear: 2026, sofr: 5.3, leverageRatio: 0.30, targetIrr: 18,
 };
 
-const PRESETS = {
-  calm: { ...DEFAULT, sofr: 4.0, sector: 'healthcare' as Sector, dpi: 0.7, rvpi: 0.8, unfunded: 5 },
-  blueowl: { ...DEFAULT, sofr: 5.3, sector: 'software' as Sector, dpi: 0.25, rvpi: 1.1, unfunded: 35 },
-  energy: { ...DEFAULT, sofr: 5.3, sector: 'energy' as Sector, dpi: 0.5, rvpi: 0.7, unfunded: 15 },
+// Presets only override scenario-specific fields — all other inputs stay as the user left them
+type PresetOverride = Partial<SecondaryInputs>;
+type PresetKey = 'calm' | 'blueowl' | 'energy';
+const PRESETS: Record<PresetKey, PresetOverride> = {
+  calm:    { sofr: 4.0, sector: 'healthcare', dpi: 0.7,  rvpi: 0.8, unfunded: 5  },
+  blueowl: { sofr: 5.3, sector: 'software',   dpi: 0.25, rvpi: 1.1, unfunded: 35 },
+  energy:  { sofr: 5.3, sector: 'energy',     dpi: 0.5,  rvpi: 0.7, unfunded: 15 },
 };
 
 // ── Formatters ─────────────────────────────────────────────────────────────
@@ -210,7 +213,7 @@ function SellerTool({
     setInp(prev => ({ ...prev, [k]: v }));
   }
 
-  function applyPreset(p: SecondaryInputs) { setInp(p); }
+  function applyPreset(p: Partial<SecondaryInputs>) { setInp(prev => ({ ...prev, ...p })); }
 
   const result = useMemo(() => calculateSeller(inp), [inp]);
 
@@ -240,10 +243,10 @@ function SellerTool({
         </div>
         <div className="flex items-center gap-2">
           <span className={`text-xs ${th.dimmed}`}>Presets:</span>
-          {([['calm','Calm Market'],['blueowl','Blue Owl Stress'],['energy','Energy Dislocation']] as const).map(([k,label]) => (
-            <button key={k} onClick={() => applyPreset(PRESETS[k])}
+          {(['calm','blueowl','energy'] as PresetKey[]).map((k, i) => (
+            <button key={k} onClick={() => applyPreset(PRESETS[k]!)}
               className={`text-xs px-3 py-1 rounded-lg border transition-colors ${th.presetBtn}`}>
-              {label}
+              {['Calm Market','Blue Owl Stress','Energy Dislocation'][i]}
             </button>
           ))}
           <div className={`w-px h-5 ${isDark ? 'bg-navy-700' : 'bg-slate-300'}`} />
@@ -504,7 +507,7 @@ function BuyerTool({
     setInp(prev => ({ ...prev, [k]: v }));
   }
 
-  function applyPreset(p: SecondaryInputs) { setInp({ ...p, targetIrr: inp.targetIrr }); }
+  function applyPreset(p: Partial<SecondaryInputs>) { setInp(prev => ({ ...prev, ...p })); }
 
   const result = useMemo(() => calculateBuyer(inp), [inp]);
   const tvpi   = inp.dpi + inp.rvpi;
@@ -529,10 +532,10 @@ function BuyerTool({
         </div>
         <div className="flex items-center gap-2">
           <span className={`text-xs ${th.dimmed}`}>Presets:</span>
-          {([['calm','Calm Market'],['blueowl','Blue Owl Stress'],['energy','Energy Dislocation']] as const).map(([k,label]) => (
-            <button key={k} onClick={() => applyPreset(PRESETS[k])}
+          {(['calm','blueowl','energy'] as PresetKey[]).map((k, i) => (
+            <button key={k} onClick={() => applyPreset(PRESETS[k]!)}
               className={`text-xs px-3 py-1 rounded-lg border transition-colors ${th.presetBtn}`}>
-              {label}
+              {['Calm Market','Blue Owl Stress','Energy Dislocation'][i]}
             </button>
           ))}
           <div className={`w-px h-5 ${isDark ? 'bg-navy-700' : 'bg-slate-300'}`} />

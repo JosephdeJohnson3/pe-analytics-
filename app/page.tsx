@@ -16,11 +16,11 @@ const tools = [
     status: 'live',
   },
   {
-    href: '#',
+    href: '/continuation-fund',
     title: 'GP-Led Secondary / Continuation Fund',
     description: 'Model cash-out vs. roll economics for LPs in a continuation vehicle, including GP carry optionality.',
     tag: 'Tool 3',
-    status: 'coming',
+    status: 'refining',
   },
 ];
 
@@ -42,6 +42,8 @@ export default function Home() {
               className={`group bg-navy-800 border rounded-xl p-6 flex flex-col gap-3 transition-all ${
                 tool.status === 'live'
                   ? 'border-navy-700 hover:border-brand cursor-pointer'
+                  : tool.status === 'refining'
+                  ? 'border-navy-700 hover:border-blue-500 cursor-pointer'
                   : 'border-navy-700 opacity-50 cursor-not-allowed pointer-events-none'
               }`}
             >
@@ -52,6 +54,9 @@ export default function Home() {
                 )}
                 {tool.status === 'live' && (
                   <span className="text-xs bg-emerald-900 text-emerald-400 px-2 py-0.5 rounded-full">Live</span>
+                )}
+                {tool.status === 'refining' && (
+                  <span className="text-xs bg-blue-900 text-blue-400 px-2 py-0.5 rounded-full">Being Perfected</span>
                 )}
               </div>
               <h2 className="text-white font-semibold leading-snug group-hover:text-brand transition-colors">
