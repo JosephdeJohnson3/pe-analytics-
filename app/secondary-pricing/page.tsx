@@ -65,9 +65,9 @@ const DEFAULT: SecondaryInputs = {
 type PresetOverride = Partial<SecondaryInputs>;
 type PresetKey = 'calm' | 'blueowl' | 'energy';
 const PRESETS: Record<PresetKey, PresetOverride> = {
-  calm:    { sofr: 4.0, sector: 'healthcare', dpi: 0.7,  rvpi: 0.8, unfunded: 5  },
-  blueowl: { sofr: 5.3, sector: 'software',   dpi: 0.25, rvpi: 1.1, unfunded: 35 },
-  energy:  { sofr: 5.3, sector: 'energy',     dpi: 0.5,  rvpi: 0.7, unfunded: 15 },
+  calm:    { sofr: 4.0, sector: 'healthcare' },
+  blueowl: { sofr: 5.3, sector: 'software'   },
+  energy:  { sofr: 5.3, sector: 'energy'     },
 };
 
 // ── Formatters ─────────────────────────────────────────────────────────────
