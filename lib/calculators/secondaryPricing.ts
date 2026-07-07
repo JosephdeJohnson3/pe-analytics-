@@ -61,24 +61,47 @@ function calcRequiredReturn(inputs: SecondaryInputs, sofrOverride?: number): num
   return sofr + BASE_PREMIUM + sectorSpread + leverageAdj + unfundedAdj;
 }
 
-function calcQualityAdj(dpi: number): number {
-  // High DPI = most capital already returned = lower risk premium
-  if (dpi >= 0.8) return -0.030;
-  if (dpi >= 0.5) return -0.015;
-  if (dpi >= 0.3) return  0.000;
-  if (dpi >= 0.15) return 0.015;
-  return 0.030;
+/**
+ * Quality adjustment based on DPI and RVPI.
+ *
+ * Cashflows are fixed at NAV (the stake value being purchased). RVPI and DPI
+ * only affect the buyer's required return — the risk-adjusted rate they discount
+ * those cashflows at.
+ *
+ * DPI (distributed to paid-in): proven, realized capital returned to LPs.
+ * Higher DPI → less risk → lower required return → discount narrows.
+ *
+ * RVPI (residual value to paid-in): still locked up and unrealized.
+ * Higher RVPI → more uncertain value → higher required return → discount widens.
+ * This matches real market behavior: buyers pay less for funds with high unrealized value.
+ */
+function calcQualityAdj(dpi: number, rvpi: number): number {
+  let dpiAdj: number;
+  if      (dpi >= 1.0)  dpiAdj = -0.040;  // -400bps: most capital back, low risk
+  else if (dpi >= 0.7)  dpiAdj = -0.020;  // -200bps
+  else if (dpi >= 0.4)  dpiAdj = -0.005;  //  -50bps
+  else if (dpi >= 0.2)  dpiAdj =  0.010;  // +100bps
+  else                  dpiAdj =  0.025;  // +250bps: little proven, high uncertainty
+
+  let rvpiAdj: number;
+  if      (rvpi >= 1.5) rvpiAdj =  0.020;  // +200bps: very high unrealized risk
+  else if (rvpi >= 1.0) rvpiAdj =  0.010;  // +100bps
+  else if (rvpi >= 0.7) rvpiAdj =  0.005;  //  +50bps
+  else if (rvpi >= 0.4) rvpiAdj =  0.000;
+  else                  rvpiAdj = -0.005;  //  -50bps: fund nearly wound down
+
+  return dpiAdj + rvpiAdj;
 }
 
-function buildCashflows(
-  nav: number,
-  rvpi: number,
-  remainingYears: number,
-): number[] {
+/**
+ * Cashflows based on NAV only — total future distributions equal the current
+ * NAV (what the buyer is purchasing). Distribution timing: 60% interim spread
+ * evenly over remaining life, 40% as terminal proceeds.
+ */
+function buildCashflows(nav: number, remainingYears: number): number[] {
   const quarters = Math.max(1, Math.round(remainingYears * 4));
-  // 60% of remaining value as interim distributions, 40% as terminal
-  const totalInterim  = rvpi * nav * 0.6;
-  const terminal      = rvpi * nav * 0.4;
+  const totalInterim  = nav * 0.6;
+  const terminal      = nav * 0.4;
   const quarterlyDist = totalInterim / quarters;
 
   const flows = new Array(quarters + 1).fill(0) as number[];
@@ -102,8 +125,8 @@ function discountAt(
   lifeOverride?: number,
 ): number {
   const life   = lifeOverride ?? (inputs.fundEndYear - inputs.currentYear);
-  const reqRet = calcRequiredReturn(inputs, sofrOverride) + calcQualityAdj(inputs.dpi);
-  const flows  = buildCashflows(inputs.nav, inputs.rvpi, life);
+  const reqRet = calcRequiredReturn(inputs, sofrOverride) + calcQualityAdj(inputs.dpi, inputs.rvpi);
+  const flows  = buildCashflows(inputs.nav, life);
   const pv     = pvFlows(flows, reqRet);
   return Math.max(0.01, Math.min(0.65, 1 - pv / inputs.nav));
 }
@@ -116,7 +139,7 @@ function annualIRR(quarterlyRate: number): number {
 
 export function discountAtCustomReturn(inputs: SecondaryInputs, annualReturn: number): { discount: number; price: number } {
   const remainingYears = inputs.fundEndYear - inputs.currentYear;
-  const flows  = buildCashflows(inputs.nav, inputs.rvpi, remainingYears);
+  const flows  = buildCashflows(inputs.nav, remainingYears);
   const qRate  = (1 + annualReturn) ** (1 / 4) - 1;
   let pv = 0;
   for (let t = 1; t < flows.length; t++) pv += flows[t] / (1 + qRate) ** t;
@@ -131,7 +154,7 @@ export const BID_PCT_ROWS = [0.70, 0.75, 0.80, 0.85, 0.90, 0.95, 1.00];
 export function calculateSeller(inputs: SecondaryInputs): SellerOutput {
   const remainingYears = inputs.fundEndYear - inputs.currentYear;
   const discount       = discountAt(inputs);
-  const reqReturn      = calcRequiredReturn(inputs) + calcQualityAdj(inputs.dpi);
+  const reqReturn      = calcRequiredReturn(inputs) + calcQualityAdj(inputs.dpi, inputs.rvpi);
 
   const gridDiscounts = SOFR_ROWS.map(s =>
     LIFE_COLS.map(l => discountAt(inputs, s, l))
@@ -157,7 +180,7 @@ export function calculateSeller(inputs: SecondaryInputs): SellerOutput {
 export function calculateBuyer(inputs: SecondaryInputs): BuyerOutput {
   const targetIrr      = (inputs.targetIrr ?? 18) / 100;
   const remainingYears = inputs.fundEndYear - inputs.currentYear;
-  const flows          = buildCashflows(inputs.nav, inputs.rvpi, remainingYears);
+  const flows          = buildCashflows(inputs.nav, remainingYears);
 
   function irrAtPrice(price: number): number {
     const cf = [-price, ...flows.slice(1)];
@@ -167,7 +190,7 @@ export function calculateBuyer(inputs: SecondaryInputs): BuyerOutput {
 
   function irrAtBidAndLife(bidPct: number, life: number): number {
     const price = inputs.nav * bidPct;
-    const f     = buildCashflows(inputs.nav, inputs.rvpi, life);
+    const f     = buildCashflows(inputs.nav, life);
     const cf    = [-price, ...f.slice(1)];
     const q     = irr(cf);
     return annualIRR(q);
