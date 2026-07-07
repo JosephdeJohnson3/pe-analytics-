@@ -193,6 +193,20 @@ function SelectorScreen({
               targeting a 2028 wind-down, modeled on current rate and valuation conditions.
             </p>
           </div>
+
+          {/* Methodology disclaimer */}
+          <div className={`mt-4 rounded-xl p-5 border ${th.section}`}>
+            <p className={`text-xs font-semibold uppercase tracking-widest mb-2 ${th.dimmed}`}>
+              Model Assumptions
+            </p>
+            <p className={`text-sm leading-relaxed ${th.muted}`}>
+              Distribution timing follows a straight-line assumption — equal quarterly payouts over the
+              remaining fund life, with 60% interim and 40% at terminal. This is a simplification;
+              actual PE distributions typically follow a back-weighted J-curve profile. This tool is
+              early-stage and has not been back-tested against realized secondary transaction data.
+              Use for directional analysis and scenario framing, not precise valuation.
+            </p>
+          </div>
         </div>
       </div>
     </div>
@@ -429,7 +443,7 @@ function SellerTool({
                 ['Base Rate (SOFR)', `${inp.sofr.toFixed(1)}%`],
                 ['Illiquidity Premium', '1.50%'],
                 ['Sector Spread', inp.sector === 'software' ? '2.00%' : inp.sector === 'healthcare' ? '1.25%' : '1.75%'],
-                ['Quality Adj (DPI)', inp.dpi >= 0.5 ? `−${((inp.dpi >= 0.8 ? 3 : 1.5)).toFixed(2)}%` : inp.dpi < 0.3 ? `+${(inp.dpi < 0.15 ? 3 : 1.5).toFixed(2)}%` : '0.00%'],
+                ['Quality Adj (DPI/RVPI)', `${((result.requiredReturn - (inp.sofr / 100) - 0.015 - (inp.sector === 'software' ? 0.02 : inp.sector === 'healthcare' ? 0.0125 : 0.0175) - Math.max(0, inp.leverageRatio - 0.3) * 0.5 - (inp.unfunded / inp.nav > 0.2 ? 0.005 : 0)) * 100).toFixed(2)}%`],
               ].map(([label, val]) => (
                 <div key={label} className={`rounded-lg px-3 py-3 ${th.section}`}>
                   <p className={`text-xs ${th.dimmed} mb-1`}>{label}</p>
@@ -487,6 +501,16 @@ function SellerTool({
               rowLabel="SOFR"
               colLabel="Remaining Life"
             />
+          </div>
+
+          {/* Methodology footnote */}
+          <div className={`rounded-xl p-4 border ${th.section}`}>
+            <p className={`text-xs leading-relaxed ${th.dimmed}`}>
+              <span className="font-semibold">Model note:</span> Distribution timing uses a straight-line assumption —
+              equal quarterly payouts over remaining fund life (60% interim, 40% terminal). Actual PE distributions
+              are typically back-weighted. This tool is early-stage and has not been back-tested against realized
+              secondary transaction data. Use for directional analysis only.
+            </p>
           </div>
         </div>
       </div>
@@ -698,6 +722,16 @@ function BuyerTool({
               The bar chart shows that as you bid closer to full NAV, your return compresses — the
               "price of liquidity" the seller pays becomes the "yield" you earn as a buyer.
               In stressed markets, disciplined buyers set firm bid floors and let distressed sellers come to them.
+            </p>
+          </div>
+
+          {/* Methodology footnote */}
+          <div className={`rounded-xl p-4 border ${th.section}`}>
+            <p className={`text-xs leading-relaxed ${th.dimmed}`}>
+              <span className="font-semibold">Model note:</span> Distribution timing uses a straight-line assumption —
+              equal quarterly payouts over remaining fund life (60% interim, 40% terminal). Actual PE distributions
+              are typically back-weighted. This tool is early-stage and has not been back-tested against realized
+              secondary transaction data. Use for directional analysis only.
             </p>
           </div>
         </div>
